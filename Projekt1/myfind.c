@@ -42,10 +42,19 @@ void do_dir(const char * dir_name, const char * const * parms)
 {
 	DIR *directory;
 	struct dirent *entry;
+	struct stat buffer;
+	int status;
+	char localname[100];
+	localname[0] = '\0';
 	
 	directory = opendir(dir_name);
+	if(!directory)
+	{
+		perror(dir_name);
+		return 0;
+	}
 	//printf("%s\n", directory);
-	printf("%s\n%s\n", *parms, *(parms+1));
+	//printf("%s\n%s\n", *parms, *(parms+1));
 	do
 	{
 
@@ -53,16 +62,18 @@ void do_dir(const char * dir_name, const char * const * parms)
 
 		if(entry && strcmp(entry->d_name, ".") && strcmp(entry->d_name, ".."))
 		{
+			strcpy(localname, dir_name);
+			strcat(localname, "/");
+			strcat(localname, entry->d_name);
 			//printf("%s/%s\n", dir_name, entry->d_name);
-			struct stat buffer;
-			stat(entry->d_name, &buffer);
-			//printf("\nInode: %lu\n", buffer.st_ino);
-
-			do_file(entry->d_name, parms);
+			status = stat(localname, &buffer);
+			printf("1: %s\n", entry->d_name);
+			printf("Inode1: %lu\n", buffer.st_ino);
+			do_file(localname, parms);
 			if(entry->d_type == DT_DIR)
 			{
 				//printf("Directory found!\n");
-				do_dir(entry->d_name, parms);
+				do_dir(localname, parms);
 			}
 		}
 	}while(entry);
@@ -74,7 +85,8 @@ void do_file(const char * file_name, const char* argv[])
 {
 	struct stat buffer;
 	int status = stat(file_name, &buffer);
-	//printf("\nInode: %lu\n", buffer.st_ino);
+	printf("2: %s\n", file_name);
+	printf("Inode2: %lu\n\n", buffer.st_ino);
 }
 
 void print(const char* argv[])
