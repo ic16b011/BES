@@ -18,7 +18,7 @@ int main(int argc, const char* argv[])
 {
 	int i, j;
 
-	const char* parms;
+	const char** parms;
 	for(i = 0; i < argc; i++)
 	{
 		if(!strncmp(argv[i], "-", 1))
@@ -26,6 +26,13 @@ int main(int argc, const char* argv[])
 			parms = &argv[i];
 			break;
 		}
+	}
+	
+	int z=0;
+	while(parms[z]!='\0')
+	{
+		printf("argv[%d]: %s\n", z, parms[z]);
+		z++;
 	}
 	
 	j=1;
