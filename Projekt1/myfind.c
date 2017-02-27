@@ -7,13 +7,16 @@
 #include <pwd.h>
 
 void do_dir(const char* dir_name, const char* parms[]);
-void do_file(const char* file_name, const char* argv[]);
+void do_file(const char* file_name, const char* parms[]);
 
 int main(int argc, const char* argv[])
 {
 	int i, j;
 
 	const char** parms;
+
+	if(argc == 1) printf("Please use some parameters\n");
+
 	for(i = 0; i < argc; i++)
 	{
 		if(!strncmp(argv[i], "-", 1))
@@ -55,7 +58,7 @@ void do_dir(const char* dir_name, const char* parms[])
 	if(!directory)
 	{
 		printf("find: `%s': No such file or directory\n", dir_name);
-		return 0;
+		return;
 	}
 
 	printf("%s\n", dir_name);
@@ -103,7 +106,7 @@ void do_dir(const char* dir_name, const char* parms[])
 				else
 				{
 					printf("Cannot read Entry!\n");
-					return 0;
+					return;
 				}
 			}
 		}
@@ -113,7 +116,7 @@ void do_dir(const char* dir_name, const char* parms[])
 	closedir(directory);
 }
 
-void do_file(const char* file_name, const char* argv[])
+void do_file(const char* file_name, const char* parms[])
 {
 
 
