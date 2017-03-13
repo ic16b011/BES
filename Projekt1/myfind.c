@@ -7,6 +7,8 @@
 #include <libgen.h>
 #include <pwd.h>
 #include <time.h>
+#include <unistd.h>
+#include <malloc.h>
 
 void do_dir(const char* dir_name, const char* parms[]);
 void do_file(const char* file_name, const char* parms[]);
@@ -18,25 +20,20 @@ int main(int argc, const char* argv[])
 	const char** parms = NULL;
 	const char* punkt[] = {"."};
 
-	/*system("mkdir test");
-	system("touch test2");
-	system("touch asdf.c");*/
-
 	if (argc == 1) printf("Please use some parameters\n");
 
-	for (i = 0; i < argc; i++)
+	for (i = 1; i < argc; i++)
 	{
 		if (!strncmp(argv[i], "-", 1))
 		{
 			parms = &argv[i];
-			i++;
 			break;
 		}
 	}
 
 	j = 1;
 
-	if (parms != NULL && i == 2)
+	if (parms != NULL && i == 1)
 	{
 		do_dir(punkt[0], parms);
 	}
@@ -56,11 +53,10 @@ void do_dir(const char* dir_name, const char* parms[])
 	DIR *directory;
 	struct dirent *entry;
 	struct stat buffer;
-	int status, len, count;
+	int status, len;
 	char localname[100];
 
 	localname[0] = '\0';
-	count = 0;
 
 	/* Prüfe, ob es einen Eintrag dir_name gibt */
 	status = stat(dir_name, &buffer);
@@ -117,7 +113,7 @@ void do_dir(const char* dir_name, const char* parms[])
 				/* Typ unbekannt, versuche Typ über stat() herauszufinden */
 				else if (entry->d_type == DT_UNKNOWN)
 				{
-					status = stat(localname, &buffer);
+					status = lstat(localname, &buffer);
 
 					if (status == 0 && S_ISDIR(buffer.st_mode))
 					{
@@ -153,17 +149,18 @@ void do_file(const char* file_name, const char* parms[])
 
 
 	struct stat buffer;
-	int status = stat(file_name, &buffer);
-	if (status == 0)
+	struct passwd *p;
+	int status = lstat(file_name, &buffer);
+	if(status == 0)
 	{
 		/*printf("2: %s\n", file_name);
 		printf("Inode2: %lu\n\n", buffer.st_ino);*/
 
 		int count = 0;
 
-		if (parms != NULL)
+		if(parms != NULL)
 		{
-			while (parms[count] != '\0')
+			while(parms[count] != '\0')
 			{
 
 				if (!(strcmp(parms[count], "-print")))
@@ -175,49 +172,67 @@ void do_file(const char* file_name, const char* parms[])
 				else if (!(strcmp(parms[count], "-name")))
 				{
 
-					if (!(strcmp(basename((char*)file_name), parms[count + 1]))) printf("%s\n", file_name);
+					if (!(strcmp(basename((char*)file_name), parms[count+1]))) printf("%s\n", file_name);
 					count += 2;
 				}
 
 				else if (!(strcmp(parms[count], "-user")))
 				{
-					if (buffer.st_uid == atoi(parms[count + 1])) printf("%s\n", file_name);
+                    //printf("buffer: %d   parms: %s\n", buffer.st_uid, parms[count+1]);
+					//if (buffer.st_uid == parms[count+1]) printf("%s\n", file_name);
 
-					struct passwd *p;
 
-					//if((p = getpwnam(parms[count+1])) == NULL) perror("User nicht vorhanden");//hier sollte man eine einmalige Fehlermeldung anzeigen
 
-					if (p->pw_uid == buffer.st_uid) printf("%s\n", file_name);
+					if((p = getpwnam(parms[count+1])) != NULL)
+                        {
+                        if (p->pw_uid == buffer.st_uid) printf("%s\n", file_name);
+                        }
+					else
+					{
+
+					p = getpwuid(atoi(parms[count+1]));
+
+                    if(p->pw_uid == buffer.st_uid) printf("%s\n", file_name);
+
+                    }
 
 					count += 2;
 
 				}
 
+				else if(!(strcmp(parms[count], "-nouser")))//muss noch überarbeitet werden
+				{
+					if((p = getpwuid(buffer.st_uid)) != NULL)
+						{
+						if(p->pw_uid == 0) printf("NO USER\n");
+						}
+				}
+
 				else if (!(strcmp(parms[count], "-ls")))
 				{
-					printf("%9lu    %3lu ", buffer.st_ino, (buffer.st_blocks / 2));
+					printf("%9lu    %3lu ", buffer.st_ino, (buffer.st_blocks/2));
 
-					printf((S_ISDIR(buffer.st_mode)) ? "d" : "-");
-					printf((buffer.st_mode & S_IRUSR) ? "r" : "-");
-					printf((buffer.st_mode & S_IWUSR) ? "w" : "-");
-					printf((buffer.st_mode & S_IXUSR) ? "x" : "-");
-					printf((buffer.st_mode & S_IRGRP) ? "r" : "-");
-					printf((buffer.st_mode & S_IWGRP) ? "w" : "-");
-					printf((buffer.st_mode & S_IXGRP) ? "x" : "-");
-					printf((buffer.st_mode & S_IROTH) ? "r" : "-");
-					printf((buffer.st_mode & S_IWOTH) ? "w" : "-");
-					printf((buffer.st_mode & S_IXOTH) ? "x" : "-");
+					printf( (S_ISDIR(buffer.st_mode)) ? "d" : "-");
+					printf( (buffer.st_mode & S_IRUSR) ? "r" : "-");
+					printf( (buffer.st_mode & S_IWUSR) ? "w" : "-");
+					printf( (buffer.st_mode & S_IXUSR) ? "x" : "-");
+					printf( (buffer.st_mode & S_IRGRP) ? "r" : "-");
+					printf( (buffer.st_mode & S_IWGRP) ? "w" : "-");
+					printf( (buffer.st_mode & S_IXGRP) ? "x" : "-");
+					printf( (buffer.st_mode & S_IROTH) ? "r" : "-");
+					printf( (buffer.st_mode & S_IWOTH) ? "w" : "-");
+					printf( (buffer.st_mode & S_IXOTH) ? "x" : "-");
 
-					printf("    %lu", buffer.st_nlink);
+					printf("    %u", buffer.st_nlink);
 
 					struct passwd *p;
 					if ((p = getpwuid(buffer.st_uid)) != NULL)
 					{
-						printf("  %s", p->pw_name);
+					printf("  %s", p->pw_name);
 					}
 					if ((p = getpwuid(buffer.st_gid)) != NULL)
 					{
-						printf(" %s", p->pw_name);
+					printf(" %s", p->pw_name);
 					}
 					//time
 
@@ -231,7 +246,31 @@ void do_file(const char* file_name, const char* parms[])
 
 					//printf("  %s", ctime(&(buffer.st_mtim)));
 
-					printf("   %s\n", file_name);
+					printf("   %s  ", file_name);
+
+                    if(S_ISLNK(buffer.st_mode) == 1)
+
+                    {
+
+
+					char *linkname;
+                    ssize_t r, bufsiz;
+
+                    bufsiz = buffer.st_size + 1;
+
+                    linkname = malloc(bufsiz);
+                    if (linkname == NULL)
+                    {
+                        perror("malloc");
+                        exit(EXIT_FAILURE);
+                    }
+                    r = readlink(file_name, linkname, bufsiz);
+                    linkname[r] = '\0';
+
+                    printf("->  %s\n", linkname);
+
+                    }
+                    else printf("\n");
 
 					count++;
 				}
