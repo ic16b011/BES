@@ -11,6 +11,7 @@
 #include <malloc.h>
 #include <errno.h>
 #include <error.h>
+#include <fnmatch.h>
 
 void do_dir(const char* dir_name, const char* parms[]);
 void do_file(const char* file_name, const char* parms[]);
@@ -63,7 +64,6 @@ void do_dir(const char* dir_name, const char* parms[])
 	/* Prüfe, ob es einen Eintrag dir_name gibt */
 	status = stat(dir_name, &buffer);
 
-	printf("%d, %d\n", status, buffer.st_mode);
 	/* Eintrag i.O. und ein Directory */
 	if ((status == 0 && S_ISDIR(buffer.st_mode)))
 	{
@@ -155,12 +155,6 @@ void do_file(const char* file_name, const char* parms[])
 	struct passwd *p;
 	int status = lstat(file_name, &buffer);
 	int uid;
-	char* check;
-	int loc_star;
-	char* str_src;
-	int counter, len_src;
-	char tmp;
-	char* filename_reverse;
 
 	if (status == 0)
 	{
@@ -182,46 +176,9 @@ void do_file(const char* file_name, const char* parms[])
 
 				else if (!(strcmp(parms[count], "-name")))
 				{
-					str_src = malloc(sizeof(const char*) * strlen(basename((char*)file_name)));
-						strcpy(str_src, basename((char*)file_name));
-						filename_reverse = malloc(sizeof(const char*) * strlen(parms[count+1]));
-						strcpy(filename_reverse, parms[count+1]);
-											check = strchr(parms[count+1], '*');
 
-						if(check == NULL)
-						{
-							if (!(strcmp(str_src, parms[count + 1]))) printf("%s\n", file_name);
-						}
-						else
-						{
-							len_src = strlen(filename_reverse);
-							counter = 0;
-							while(counter<(len_src/2))
-							{
-								tmp = filename_reverse[len_src-counter-1];
-								filename_reverse[len_src-counter-1] = filename_reverse[counter];
-								filename_reverse[counter] = tmp;
-								counter++;
-							}
-							len_src = strlen(str_src);
-							counter = 0;
-							while(counter<(len_src/2))
-							{
-								tmp = str_src[len_src-counter-1];
-								str_src[len_src-counter-1] = str_src[counter];
-								str_src[counter] = tmp;
-								counter++;
-							}
-
-							while(check != NULL)
-							{
-								loc_star = check-parms[count+1]+1;
-								len_src = strlen(filename_reverse);
-								len_src = len_src - (loc_star+1);
-								if (!(strncmp(str_src, filename_reverse, len_src-1))) printf("%s\n", file_name);
-								check = strchr(check+1, '*');
-							}
-						}
+					if (!(strcmp(basename((char*)file_name), parms[count+1]))) printf("%s\n", file_name);
+					count += 2;
 				}
 
 				else if (!(strcmp(parms[count], "-user")))
@@ -247,6 +204,7 @@ void do_file(const char* file_name, const char* parms[])
 						if (p->pw_uid == buffer.st_uid) printf("%s\n", file_name);
 					}
 
+					count += 2;
 
 				}
 
@@ -256,6 +214,8 @@ void do_file(const char* file_name, const char* parms[])
 					{
 						printf("%s\n", file_name);
 					}
+					
+					count++;
 				}
 
 				else if (!(strcmp(parms[count], "-ls")))
@@ -275,7 +235,6 @@ void do_file(const char* file_name, const char* parms[])
 
 					printf("    %u", buffer.st_nlink);
 
-					struct passwd *p;
 					if ((p = getpwuid(buffer.st_uid)) != NULL)
 					{
 						printf("  %s", p->pw_name);
@@ -286,12 +245,13 @@ void do_file(const char* file_name, const char* parms[])
 					}
 					//time
 
+					printf(" %ld ", buffer.st_size);
 
 					struct tm *info;
 					char tm_buffer[200];
 					info = localtime(&(buffer.st_mtime));
 
-					strftime(tm_buffer, 200, "%B %d %H:%M", info);
+					strftime(tm_buffer, 200, "%b %d %H:%M", info);
 					printf("  %s", tm_buffer);
 
 					//printf("  %s", ctime(&(buffer.st_mtim)));
@@ -321,6 +281,8 @@ void do_file(const char* file_name, const char* parms[])
 
 					}
 					else printf("\n");
+					
+					count++;
 
 				}
 				else if (!(strcmp(parms[count], "-path")))
@@ -329,44 +291,48 @@ void do_file(const char* file_name, const char* parms[])
 					{
 						printf("%s\n", file_name);
 					}
+					
+					count += 2;
 				}
-				/*else
-				{
-					printf("find: unknown predicate %s\n", parms[count]);
-					return;
-				}*/
 				
-				else if (!(strcmp(parms[i], "-type"))) 
+				else if (!(strcmp(parms[count], "-type"))) 
 				{
 					if (strlen(parms[++count]) != 1) 
 
 					{
-						fprintf(stderr, "find: Arguments to -type should contain only one letter");
+						error(EXIT_FAILURE, 0, "Arguments to -type should contain only one letter");
 						return;
 					}
 
-					if ((S_ISDIR(buf.st_mode)) && (strcmp(parms[count], "d") == 0)) printf("%s\n", file_name);
+					if ((S_ISDIR(buffer.st_mode)) && (strcmp(parms[count], "d") == 0)) printf("%s\n", file_name);
 
-					else if ((S_ISREG(buf.st_mode)) && (strcmp(parms[count], "f") == 0)) printf("%s\n", file_name);
+					else if ((S_ISREG(buffer.st_mode)) && (strcmp(parms[count], "f") == 0)) printf("%s\n", file_name);
 
-					else if ((S_ISCHR(buf.st_mode)) && (strcmp(parms[count], "c") == 0)) printf("%s\n", file_name); 
+					else if ((S_ISCHR(buffer.st_mode)) && (strcmp(parms[count], "c") == 0)) printf("%s\n", file_name); 
 
-					else if ((S_ISBLK(buf.st_mode)) && (strcmp(parms[count], "b") == 0)) printf("%s\n", file_name);
+					else if ((S_ISBLK(buffer.st_mode)) && (strcmp(parms[count], "b") == 0)) printf("%s\n", file_name);
 
-					else if ((S_ISFIFO(buf.st_mode))&& (strcmp(parms[count], "p") == 0)) printf("%s\n", file_name);
+					else if ((S_ISFIFO(buffer.st_mode))&& (strcmp(parms[count], "p") == 0)) printf("%s\n", file_name);
 
-					else if ((S_ISLNK(buf.st_mode)) && (strcmp(parms[count], "l") == 0)) printf("%s\n", file_name);
+					else if ((S_ISLNK(buffer.st_mode)) && (strcmp(parms[count], "l") == 0)) printf("%s\n", file_name);
 
-					else if ((S_ISSOCK(buf.st_mode)) && (strcmp(parms[count], "s") == 0))printf("%s\n", file_name); 
+					else if ((S_ISSOCK(buffer.st_mode)) && (strcmp(parms[count], "s") == 0))printf("%s\n", file_name); 
 					
-					else 
+					/*else 
 					{
-						fprintf(stderr, "find: Unknown argument to -type: %s\n ",parms[count]);
+						error(EXIT_FAILURE, 0, "Unknown argument to -type: %s\n ",parms[count]);
 						return;
-					}
+					}*/
+					
+					count ++;
 				}
 				
-				count++;
+				else
+				{
+					printf("find: unknown predicate %s\n", parms[count]);
+					return;
+				}
+				
 			}
 			
 			
