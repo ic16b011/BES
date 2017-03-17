@@ -67,13 +67,8 @@ void do_dir(const char* dir_name, const char* parms[])
 	/* Eintrag i.O. und ein Directory */
 	if ((status == 0 && S_ISDIR(buffer.st_mode)))
 	{
-		/* keine Actions vorhanden */
-		if (parms == NULL)
-		{
-			//printf("%s\n", dir_name);
-		}
 		/* Actions vorhanden */
-		else
+		if (parms != NULL)
 		{
 			do_file(dir_name, parms);
 		}
@@ -158,9 +153,6 @@ void do_file(const char* file_name, const char* parms[])
 
 	if (status == 0)
 	{
-		/*printf("2: %s\n", file_name);
-		printf("Inode2: %lu\n\n", buffer.st_ino);*/
-
 		int count = 0;
 
 		if (parms != NULL)
@@ -208,7 +200,7 @@ void do_file(const char* file_name, const char* parms[])
 
 				}
 
-				else if (!(strcmp(parms[count], "-nouser")))//muss noch überarbeitet werden
+				else if (!(strcmp(parms[count], "-nouser")))
 				{
 					if ((p = getpwuid(buffer.st_uid)) == NULL)
 					{
@@ -243,7 +235,6 @@ void do_file(const char* file_name, const char* parms[])
 					{
 						printf(" %s", p->pw_name);
 					}
-					//time
 
 					printf(" %ld ", buffer.st_size);
 
@@ -253,8 +244,6 @@ void do_file(const char* file_name, const char* parms[])
 
 					strftime(tm_buffer, 200, "%b %d %H:%M", info);
 					printf("  %s", tm_buffer);
-
-					//printf("  %s", ctime(&(buffer.st_mtim)));
 
 					printf("   %s  ", file_name);
 
@@ -318,12 +307,6 @@ void do_file(const char* file_name, const char* parms[])
 
 					else if ((S_ISSOCK(buffer.st_mode)) && (strcmp(parms[count], "s") == 0))printf("%s\n", file_name); 
 					
-					/*else 
-					{
-						error(EXIT_FAILURE, 0, "Unknown argument to -type: %s\n ",parms[count]);
-						return;
-					}*/
-					
 					count ++;
 				}
 				
@@ -333,11 +316,7 @@ void do_file(const char* file_name, const char* parms[])
 					return;
 				}
 				
-			}
-			
-			
-			
-			
+			}			
 		}
 		else
 			printf("%s\n", file_name);
