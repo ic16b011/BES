@@ -8,25 +8,11 @@
 #include <sys/wait.h>
 #include "mypopen.h"
 
-static int nrOpenPipe = 0;
-
 FILE *mypopen(const char *command, const char *type)
 {
 	int pipefd[2];
-	//int status;
-	pid_t cpid;//, waitret;
-	
-	/*waitret = waitpid(0, &status, WNOHANG);
-	if(waitret == -1 || errno == ECHILD)
-	{
-		return NULL;
-	}
-	else if(waitret != -1)
-	{
-		errno = EAGAIN;
-		return NULL;
-	}*/
-		
+	pid_t cpid;
+
 	/* check correct use of type */
 	if(*type != 'w' && *type != 'r')
 	{
@@ -39,7 +25,6 @@ FILE *mypopen(const char *command, const char *type)
 	{
 		return NULL;
 	}
-	nrOpenPipe = 1;
 	
 	/* fork child process */
 	cpid = fork();
@@ -56,23 +41,24 @@ FILE *mypopen(const char *command, const char *type)
 			/* close read fd, because it is not used */
 			if(close(pipefd[0]) == -1)
 			{
-				return NULL;
+				exit(EXIT_FAILURE);
 			}
 			
 			/* associate fd with stdout */
 			if(dup2(STDOUT_FILENO, pipefd[1]) == -1)
 			{
-				return NULL;
+				exit(EXIT_FAILURE);
 			}
 			
 			/* execute command */
 			if (execl("/bin/sh", &command[0], (char*)NULL) == -1)
 			{
-				return NULL;
+				exit(EXIT_FAILURE);
 			}
 			
 			/* return filestream */
-			return fdopen(pipefd[1], type);
+			exit(EXIT_SUCCESS);
+			//return fdopen(pipefd[1], type);
 		}
 
 		else
@@ -80,17 +66,33 @@ FILE *mypopen(const char *command, const char *type)
 			/* close write fd, because it is not used */
 			if(close(pipefd[1]) == -1)
 			{
-				return NULL;
+				exit(EXIT_FAILURE);
 			}
 			
 			/* associate fd with stdout */
 			if(dup2(STDIN_FILENO, pipefd[0]) == -1)
 			{
-				return NULL;
+				exit(EXIT_FAILURE);
 			}
 			
 			/* execute command */
 			if (execl("/bin/sh", &command[0], (char*)NULL) == -1)
+			{
+				exit(EXIT_FAILURE);
+			}
+			
+			/* return filestream */
+			exit(EXIT_SUCCESS);
+			//return fdopen(pipefd[0], type);
+		}
+	}
+	else
+	{
+		/* Elternprozess liest von Pipe */
+		if(*type == 'w')
+		{
+			/* close write fd, because it is not used */
+			if(close(pipefd[1]) == -1)
 			{
 				return NULL;
 			}
@@ -98,16 +100,34 @@ FILE *mypopen(const char *command, const char *type)
 			/* return filestream */
 			return fdopen(pipefd[0], type);
 		}
-	}
-	else
-	{
-		return NULL;
-	}
+
+		/* Elternprozess schreibt auf Pipe */
+		else
+		{
+			/* close read fd, because it is not used */
+			if(close(pipefd[0]) == -1)
+			{
+				return NULL;
+			}
+			
+			/* return filestream */
+			return fdopen(pipefd[1], type);
+		}
+	}	
+	//return NULL;
 }
 
 int mypclose(FILE *stream)
 {
 	int status;
+	
+	/* ungültiger File Stream */
+	if(stream == NULL)
+	{
+		errno = ECHILD;
+		return -1;
+	}
+	
 	
 	/* wait for child-process with same group id to terminate */
 	do
@@ -118,8 +138,6 @@ int mypclose(FILE *stream)
 		}
 		
 	}while(WIFEXITED(status) == 0 && WIFSIGNALED(status) == 0);
-	
-	nrOpenPipe = 0;
 	
 	/* close filestream */
 	if(fclose(stream) != 0)
