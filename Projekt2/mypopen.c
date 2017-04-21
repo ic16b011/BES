@@ -1,14 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <errno.h>
 #include <error.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "mypopen.h"
-
 
 FILE *mypopen(const char *command, const char *type)
 {
@@ -16,6 +15,7 @@ FILE *mypopen(const char *command, const char *type)
 	pid_t cpid;
 	int status;
 
+	/* check if child-process already exists */
 	if (waitpid(0, &status, WNOHANG) != -1)
 	{
 		errno = EAGAIN;
@@ -23,7 +23,7 @@ FILE *mypopen(const char *command, const char *type)
 	}
 
 	/* check correct use of type */
-	if (strcmp(type, "w") != 0 && strcmp(type, "r") != 0)// != 'w' && *type != 'r')
+	if (strcmp(type, "w") != 0 && strcmp(type, "r") != 0)
 	{
 		errno = EINVAL;
 		return NULL;
@@ -71,7 +71,6 @@ FILE *mypopen(const char *command, const char *type)
 			}
 			/* return filestream */
 			_exit(EXIT_SUCCESS);
-			//return fdopen(pipefd[1], type);
 		}
 
 		else
@@ -100,7 +99,6 @@ FILE *mypopen(const char *command, const char *type)
 			}
 			/* return filestream */
 			_exit(EXIT_SUCCESS);
-			//return fdopen(pipefd[0], type);
 		}
 	}
 	else
@@ -113,7 +111,6 @@ FILE *mypopen(const char *command, const char *type)
 			{
 				return NULL;
 			}
-
 			/* return filestream */
 			return fdopen(pipefd[0], "r");
 		}
@@ -126,25 +123,29 @@ FILE *mypopen(const char *command, const char *type)
 			{
 				return NULL;
 			}
-
 			/* return filestream */
 			return fdopen(pipefd[1], "w");
 		}
 	}
-	//return NULL;
 }
 
 int mypclose(FILE *stream)
 {
 	int status;
 
+	/* check if child-process exists */
+	if (waitpid(0, &status, WNOHANG) == -1)
+	{
+		errno = ECHILD;
+		return -1;
+	}
+	
 	/* ungültiger File Stream */
-	if (stream == NULL)
+	if (stream == NULL || fgetc(stream) == '\0')
 	{
 		errno = EINVAL;
 		return -1;
 	}
-
 
 	/* wait for child-process with same group id to terminate */
 	do
@@ -153,10 +154,9 @@ int mypclose(FILE *stream)
 		{
 			return -1;
 		}
+	} while (WIFEXITED(status) == 0);
 
-	} while (WIFEXITED(status) == 0);// && WIFSIGNALED(status) == 0);
-
-									 /* close filestream */
+	/* close filestream */
 	if (fclose(stream) != 0)
 	{
 		return NULL;
