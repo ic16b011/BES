@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 #include <error.h>
 #include <unistd.h>
@@ -8,142 +9,158 @@
 #include <sys/wait.h>
 #include "mypopen.h"
 
+
 FILE *mypopen(const char *command, const char *type)
 {
 	int pipefd[2];
 	pid_t cpid;
+	int status;
+
+	if (waitpid(0, &status, WNOHANG) != -1)
+	{
+		errno = EAGAIN;
+		return NULL;
+	}
 
 	/* check correct use of type */
-	if(*type != 'w' && *type != 'r')
+	if (strcmp(type, "w") != 0 && strcmp(type, "r") != 0)// != 'w' && *type != 'r')
 	{
 		errno = EINVAL;
 		return NULL;
 	}
-	
+
 	/* create pipe */
-	if(pipe(pipefd) == -1)
+	if (pipe(pipefd) == -1)
 	{
 		return NULL;
 	}
-	
+
 	/* fork child process */
 	cpid = fork();
-	if(cpid == -1)
+	if (cpid == -1)
 	{
 		return NULL;
 	}
-	
+
 	/* Child Process */
-	else if(cpid == 0)
+	else if (cpid == 0)
 	{
-		if(*type == 'w')
+		if (*type == 'w')
 		{
 			/* close read fd, because it is not used */
-			if(close(pipefd[0]) == -1)
+			if (close(pipefd[0]) == -1)
 			{
 				exit(EXIT_FAILURE);
 			}
-			
+
 			/* associate fd with stdout */
-			if(dup2(STDOUT_FILENO, pipefd[1]) == -1)
+			if (dup2(STDOUT_FILENO, pipefd[1]) == -1)
 			{
 				exit(EXIT_FAILURE);
 			}
-			
+
 			/* execute command */
-			if (execl("/bin/sh", &command[0], (char*)NULL) == -1)
+			if (execv("/bin/sh", (char* const*)command) == -1)
 			{
 				exit(EXIT_FAILURE);
 			}
-			
+
+			if (close(pipefd[1]) == -1)
+			{
+				exit(EXIT_FAILURE);
+			}
 			/* return filestream */
-			exit(EXIT_SUCCESS);
+			_exit(EXIT_SUCCESS);
 			//return fdopen(pipefd[1], type);
 		}
 
 		else
 		{
 			/* close write fd, because it is not used */
-			if(close(pipefd[1]) == -1)
+			if (close(pipefd[1]) == -1)
 			{
 				exit(EXIT_FAILURE);
 			}
-			
+
 			/* associate fd with stdout */
-			if(dup2(STDIN_FILENO, pipefd[0]) == -1)
+			if (dup2(STDIN_FILENO, pipefd[0]) == -1)
 			{
 				exit(EXIT_FAILURE);
 			}
-			
+
 			/* execute command */
-			if (execl("/bin/sh", &command[0], (char*)NULL) == -1)
+			if (execv("/bin/sh", (char* const*)command) == -1)
 			{
 				exit(EXIT_FAILURE);
 			}
-			
+
+			if (close(pipefd[0]) == -1)
+			{
+				exit(EXIT_FAILURE);
+			}
 			/* return filestream */
-			exit(EXIT_SUCCESS);
+			_exit(EXIT_SUCCESS);
 			//return fdopen(pipefd[0], type);
 		}
 	}
 	else
 	{
 		/* Elternprozess liest von Pipe */
-		if(*type == 'w')
+		if (*type == 'w')
 		{
 			/* close write fd, because it is not used */
-			if(close(pipefd[1]) == -1)
+			if (close(pipefd[1]) == -1)
 			{
 				return NULL;
 			}
-			
+
 			/* return filestream */
-			return fdopen(pipefd[0], type);
+			return fdopen(pipefd[0], "r");
 		}
 
 		/* Elternprozess schreibt auf Pipe */
 		else
 		{
 			/* close read fd, because it is not used */
-			if(close(pipefd[0]) == -1)
+			if (close(pipefd[0]) == -1)
 			{
 				return NULL;
 			}
-			
+
 			/* return filestream */
-			return fdopen(pipefd[1], type);
+			return fdopen(pipefd[1], "w");
 		}
-	}	
+	}
 	//return NULL;
 }
 
 int mypclose(FILE *stream)
 {
 	int status;
-	
+
 	/* ungültiger File Stream */
-	if(stream == NULL)
+	if (stream == NULL)
 	{
-		errno = ECHILD;
+		errno = EINVAL;
 		return -1;
 	}
-	
-	
+
+
 	/* wait for child-process with same group id to terminate */
 	do
 	{
-		if(waitpid(0, &status, WNOHANG) == -1)
+		if (waitpid(0, &status, WNOHANG) == -1)
 		{
 			return -1;
 		}
-		
-	}while(WIFEXITED(status) == 0 && WIFSIGNALED(status) == 0);
-	
-	/* close filestream */
-	if(fclose(stream) != 0)
+
+	} while (WIFEXITED(status) == 0);// && WIFSIGNALED(status) == 0);
+
+									 /* close filestream */
+	if (fclose(stream) != 0)
 	{
 		return NULL;
 	}
-	
+
 	return status;
 }
