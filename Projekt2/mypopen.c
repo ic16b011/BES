@@ -1,12 +1,8 @@
-
 #include "mypopen.h"
-
 
 FILE *mypopen(const char *command, const char *type)
 {	
 	int pipefd[2];
-	pid_t cpid;
-	//int status;
 	
 	/* check if child-process already exists */
 	if (fd_result != NULL)
@@ -29,8 +25,8 @@ FILE *mypopen(const char *command, const char *type)
 	}
 
 	/* fork child process */
-	cpid = fork();
-	if (cpid == -1)
+	child_pid = fork();
+	if (child_pid == -1)
 	{	//notwendig für den Testfall 11
 		close(pipefd[0]);
 		close(pipefd[1]);
@@ -38,7 +34,7 @@ FILE *mypopen(const char *command, const char *type)
 	}
 
 	/* Child Process */
-	else if (cpid == 0)
+	else if (child_pid == 0)
 	{
 		if (*type == 'w')
 		{
@@ -55,6 +51,11 @@ FILE *mypopen(const char *command, const char *type)
 				exit(EXIT_FAILURE);
 			}
 
+			if (close(pipefd[0]) == -1)
+			{
+				exit(EXIT_FAILURE);
+			}
+			
 			/* execute command */
 			if (execl("/bin/sh", "sh", "-c", (const char *)command, (char *) NULL) == -1)
 			{
@@ -62,10 +63,6 @@ FILE *mypopen(const char *command, const char *type)
 				exit(EXIT_FAILURE);
 			}
 
-			if (close(pipefd[0]) == -1)
-			{
-				exit(EXIT_FAILURE);
-			}
 			/* return filestream */
 			exit(EXIT_SUCCESS);
 		}
@@ -91,6 +88,11 @@ FILE *mypopen(const char *command, const char *type)
 				exit(EXIT_FAILURE);
 			}
 
+			if (close(pipefd[1]) == -1)
+			{
+				exit(EXIT_FAILURE);
+			}
+			
 			/* execute command */
 			if (execl("/bin/sh", "sh", "-c",(const char *)command, (char *) NULL) == -1)
 			{
@@ -98,17 +100,12 @@ FILE *mypopen(const char *command, const char *type)
 				exit(EXIT_FAILURE);
 			}
 
-			if (close(pipefd[1]) == -1)
-			{
-				exit(EXIT_FAILURE);
-			}
 			/* return filestream */
 			exit(EXIT_SUCCESS);
 		}
 	}
 	else
 	{
-		child_pid = cpid;
 		/* Elternprozess schreibt auf die Pipe */
 		if (*type == 'w')
 		{
