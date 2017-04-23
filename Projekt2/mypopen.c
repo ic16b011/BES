@@ -1,24 +1,15 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <error.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+
 #include "mypopen.h"
-//global var
-static pid_t child_pid = -1;
+
 
 FILE *mypopen(const char *command, const char *type)
 {	
 	int pipefd[2];
 	pid_t cpid;
-	int status;
+	//int status;
 	
 	/* check if child-process already exists */
-	if (waitpid(0, &status, WNOHANG) != -1)
+	if (fd_result != NULL)
 	{
 		errno = EAGAIN;
 		return NULL;
@@ -60,12 +51,14 @@ FILE *mypopen(const char *command, const char *type)
 			/* associate fd with stin */
 			if (dup2(pipefd[0], STDIN_FILENO) == -1)
 			{
+				close(pipefd[0]);
 				exit(EXIT_FAILURE);
 			}
 
 			/* execute command */
 			if (execl("/bin/sh", "sh", "-c", (const char *)command, (char *) NULL) == -1)
 			{
+				close(pipefd[0]);
 				exit(EXIT_FAILURE);
 			}
 
@@ -88,12 +81,20 @@ FILE *mypopen(const char *command, const char *type)
 			/* associate fd with stdout */
 			if (dup2(pipefd[1], STDOUT_FILENO) == -1)
 			{
+				close(pipefd[1]);
+				exit(EXIT_FAILURE);
+			}
+			
+			if (dup2(pipefd[1], STDERR_FILENO) == -1)
+			{
+				close(pipefd[1]);
 				exit(EXIT_FAILURE);
 			}
 
 			/* execute command */
 			if (execl("/bin/sh", "sh", "-c",(const char *)command, (char *) NULL) == -1)
 			{
+				close(pipefd[1]);
 				exit(EXIT_FAILURE);
 			}
 
@@ -117,7 +118,12 @@ FILE *mypopen(const char *command, const char *type)
 				return NULL;
 			}
 			/* return filestream */
-			return fdopen(pipefd[1], "w");
+			if((fd_result = fdopen(pipefd[1], type)) == NULL)
+			{
+				close(pipefd[1]);
+				return NULL;
+			}
+			else return fd_result;
 		}
 
 		/* Elternprozess liest von der Pipe */
@@ -129,7 +135,12 @@ FILE *mypopen(const char *command, const char *type)
 				return NULL;
 			}
 			/* return filestream */
-			return fdopen(pipefd[0], "r");
+			if((fd_result = fdopen(pipefd[0], type)) == NULL)
+			{
+				close(pipefd[0]);
+				return NULL;
+			}
+			else return fd_result;
 		}
 	}
 }
@@ -138,30 +149,51 @@ int mypclose(FILE *stream)
 {
 	int status;
 	pid_t w = 0;
-	if(child_pid == -1) 
-		{
+	
+	
+	if(fd_result == NULL) 
+	{
 		errno = ECHILD;		
 		return -1;
-		}
-	if (stream == NULL || fgetc(stream) == '\0')
+	}
+		
+		
+	if (fd_result != stream)
 	{
 		errno = EINVAL;
 		return -1;
 	}
 	
-	if (fclose(stream) != 0)
+	if (fclose(stream) == EOF)
 	{
+		child_pid = -1;
+		fd_result = NULL;
 		return -1;
 	}
 	
-	while(w != child_pid){
-		w = waitpid(child_pid, &status, WUNTRACED | WCONTINUED);
-    if (w == -1) {
-		printf("fehler bei waitpid im mypclose\n");
-                perror("waitpid");
-                exit(EXIT_FAILURE);
-            }
+	w = waitpid(child_pid, &status, 0);
+	
+	while(w != child_pid)
+	{
+		if (w == -1) 
+		{
+			if(errno == EINTR)
+			{
+				continue;
+			}
+			
+			/* in case of error reset the child_pid & fd_result and return -1 for error */
+			child_pid = -1;
+			fd_result = NULL;
+			
+			return -1;	
+        }
 	}
+	
+	/* reset the global variables before exiting */
+	child_pid = -1;
+	fd_result = NULL;
+
 	
 	if (WIFEXITED(status)) 
 	{
