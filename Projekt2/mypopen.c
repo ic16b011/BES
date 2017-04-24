@@ -1,5 +1,47 @@
 #include "mypopen.h"
 
+#define WRITE 1
+#define READ 0
+
+int close_pipe(int* pipefd, int type)
+{
+	/* close write fd, because the parent process needs to write something and the child needs to read it */
+	if (close(pipefd[type]) == -1)
+	{
+		exit(EXIT_FAILURE);
+	}
+	
+	if(type == 1)
+	{
+		return 0;
+	}
+	else
+	{
+		return 1;
+	}
+}
+
+void child_proc(int* pipefd, int type, const char* command)
+{
+	/* associate fd with stdin, stdout (STDIN_FILENO = 0, STDOUT_FILENO = 1) */
+	if (dup2(pipefd[type], type) == -1)
+	{
+		/* close kann ohne Fehlerbehandlung aufgerufen werden, im Fehlerfall wird ebenfalls exit(EXIT_FAILURE) aufgerufen */
+		close(pipefd[type]);
+		exit(EXIT_FAILURE);
+	}
+
+	close_pipe(pipefd, type);
+	
+	/* execute command */
+	if (execl("/bin/sh", "sh", "-c", (const char *)command, (char *) NULL) == -1)
+	{
+		/* close kann ohne Fehlerbehandlung aufgerufen werden, im Fehlerfall wird ebenfalls exit(EXIT_FAILURE) aufgerufen */
+		close(pipefd[type]);
+		exit(EXIT_FAILURE);
+	}
+}
+
 FILE *mypopen(const char *command, const char *type)
 {	
 	int pipefd[2];
@@ -27,9 +69,9 @@ FILE *mypopen(const char *command, const char *type)
 	/* fork child process */
 	child_pid = fork();
 	if (child_pid == -1)
-	{	//notwendig für den Testfall 11
-		close(pipefd[0]);
-		close(pipefd[1]);
+	{	
+		close_pipe(pipefd, READ);
+		close_pipe(pipefd, WRITE);
 		return NULL;
 	}
 
@@ -38,71 +80,16 @@ FILE *mypopen(const char *command, const char *type)
 	{
 		if (*type == 'w')
 		{
-			/* close write fd, because the parent process needs to write something and the child needs to read it */
-			if (close(pipefd[1]) == -1)
-			{
-				exit(EXIT_FAILURE);
-			}
-
-			/* associate fd with stin */
-			if (dup2(pipefd[0], STDIN_FILENO) == -1)
-			{
-				close(pipefd[0]);
-				exit(EXIT_FAILURE);
-			}
-
-			if (close(pipefd[0]) == -1)
-			{
-				exit(EXIT_FAILURE);
-			}
-			
-			/* execute command */
-			if (execl("/bin/sh", "sh", "-c", (const char *)command, (char *) NULL) == -1)
-			{
-				close(pipefd[0]);
-				exit(EXIT_FAILURE);
-			}
-
-			/* return filestream */
-			exit(EXIT_SUCCESS);
+			close_pipe(pipefd, WRITE);
+			child_proc(pipefd, READ, command);
 		}
-
 		else
 		{
-			/* close read fd, because parent process wants to read the things the child process writes */
-			if (close(pipefd[0]) == -1)
-			{
-				exit(EXIT_FAILURE);
-			}
-
-			/* associate fd with stdout */
-			if (dup2(pipefd[1], STDOUT_FILENO) == -1)
-			{
-				close(pipefd[1]);
-				exit(EXIT_FAILURE);
-			}
-			
-			if (dup2(pipefd[1], STDERR_FILENO) == -1)
-			{
-				close(pipefd[1]);
-				exit(EXIT_FAILURE);
-			}
-
-			if (close(pipefd[1]) == -1)
-			{
-				exit(EXIT_FAILURE);
-			}
-			
-			/* execute command */
-			if (execl("/bin/sh", "sh", "-c",(const char *)command, (char *) NULL) == -1)
-			{
-				close(pipefd[1]);
-				exit(EXIT_FAILURE);
-			}
-
-			/* return filestream */
-			exit(EXIT_SUCCESS);
+			close_pipe(pipefd, READ);
+			child_proc(pipefd, WRITE, command);
 		}
+		
+		exit(EXIT_SUCCESS);
 	}
 	else
 	{
@@ -110,34 +97,30 @@ FILE *mypopen(const char *command, const char *type)
 		if (*type == 'w')
 		{
 			/* close read fd, because it is not used */
-			if (close(pipefd[0]) == -1)
-			{
-				return NULL;
-			}
+			close_pipe(pipefd, READ);
+			
 			/* return filestream */
 			if((fd_result = fdopen(pipefd[1], type)) == NULL)
 			{
 				close(pipefd[1]);
-				return NULL;
 			}
-			else return fd_result;
+			
+			return fd_result;
 		}
 
 		/* Elternprozess liest von der Pipe */
 		else
 		{
 			/* close write fd, because it is not used */
-			if (close(pipefd[1]) == -1)
-			{
-				return NULL;
-			}
+			close_pipe(pipefd, WRITE);
+			
 			/* return filestream */
 			if((fd_result = fdopen(pipefd[0], type)) == NULL)
 			{
 				close(pipefd[0]);
-				return NULL;
 			}
-			else return fd_result;
+			
+			return fd_result;
 		}
 	}
 }
