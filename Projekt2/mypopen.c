@@ -97,7 +97,10 @@ FILE *mypopen(const char *command, const char *type)
 		if (*type == 'w')
 		{
 			/* close read fd, because it is not used */
-			close_pipe(pipefd, READ);
+			if (close(pipefd[READ]) == -1)
+			{
+				return NULL;	
+			}
 			
 			/* return filestream */
 			if((fd_result = fdopen(pipefd[1], type)) == NULL)
@@ -112,7 +115,10 @@ FILE *mypopen(const char *command, const char *type)
 		else
 		{
 			/* close write fd, because it is not used */
-			close_pipe(pipefd, WRITE);
+			if (close(pipefd[WRITE]) == -1)
+			{
+				return NULL;	
+			}
 			
 			/* return filestream */
 			if((fd_result = fdopen(pipefd[0], type)) == NULL)
