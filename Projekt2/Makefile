@@ -42,7 +42,7 @@ EXCLUDE_PATTERN=footrulewidth
 ##
 
 .PHONY: all
-all: mypopen popentest test-pipe doc
+all: mypopen doc
 
 popentest: mypopen.c
 	gcc52 -o popentest mypopen.c -lpopentest
