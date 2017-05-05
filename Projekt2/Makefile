@@ -34,7 +34,7 @@ EXCLUDE_PATTERN=footrulewidth
 ##
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $<
+	$(CC) $(CFLAGS)  $<
 
 
 ##
@@ -42,7 +42,7 @@ EXCLUDE_PATTERN=footrulewidth
 ##
 
 .PHONY: all
-all: mypopen doc
+all: mypopen
 
 popentest: mypopen.c
 	gcc52 -o popentest mypopen.c -lpopentest
@@ -51,7 +51,7 @@ test-pipe: mypopen.c
 	gcc52 -o test-pipe mypopen.c -ltest-pipe
 
 mypopen: $(OBJECTS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o mypopen.o mypopen.c
 
 .PHONY: clean
 clean:
