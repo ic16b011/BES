@@ -116,7 +116,12 @@ int main(int argc, const char* argv[])
 	{
 		if((ch = fgetc(stdin)) == EOF) break;
 		//critical region
-		P(semid2);
+		errno = 0;
+		while((P(semid2) == -1 ) && (errno == EINTR))
+		{
+			errno = 0;			
+		}
+		
 		shmptr[count] = ch;
 		count = (count + 1)%buffer;
 		V(semid);
