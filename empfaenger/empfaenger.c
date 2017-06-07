@@ -113,7 +113,11 @@ int main(int argc, const char* argv[])
 	while(1)
 	{
 		
-		P(semid);
+		errno = 0;
+		while((P(semid) == -1 ) && (errno == EINTR))
+		{
+			errno = 0;			
+		}
 		if(shmptr[count] == EOF) break;
 		fputc(shmptr[count], stdout);
 		
