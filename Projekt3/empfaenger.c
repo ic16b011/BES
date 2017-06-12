@@ -12,8 +12,7 @@ int main(int argc, const char* argv[])
 	unsigned long long tmpbuffer = 0;
 	char *endptr;
 	
-	key = 1000 * getuid();
-	key2 = 1000 * getuid() + 1;
+	
 
 	if(argc < 2 || argc > 3)
 	{
