@@ -9,4 +9,5 @@
 #include <sem182.h>
 #include <stdint.h>
 
-key_t key, key2;
+#define KEY (1000 * getuid())
+#define KEY2 (1000 * getuid() + 1)
