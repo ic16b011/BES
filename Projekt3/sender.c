@@ -12,9 +12,7 @@ int main(int argc, const char* argv[])
 	unsigned long long tmpbuffer = 0;
 	char* endptr;
 	
-	key = 1000 * getuid();
-	key2 = 1000 * getuid() + 1;
-	
+
 	//wegen "-m30" und "-m 30"?
 	if(argc < 2 || argc > 3)
 	{
@@ -58,9 +56,9 @@ int main(int argc, const char* argv[])
 		}
 	}
 	
-	if((semid = semgrab(key)) == -1)
+	if((semid = semgrab(KEY)) == -1)
 	{
-		semid = seminit(key, 0660, 0);
+		semid = seminit(KEY, 0660, 0);
 		if(semid == -1)
 		{
 			printf("Fehler seminit()\n");
@@ -68,9 +66,9 @@ int main(int argc, const char* argv[])
 		}
 	}
 	
-	if((semid2 = semgrab(key2)) == -1)
+	if((semid2 = semgrab(KEY2)) == -1)
 	{
-		semid2 = seminit(key2, 0660, buffer);
+		semid2 = seminit(KEY2, 0660, buffer);
 		if(semid2 == -1)
 		{
 			printf("Fehler seminit2()\n");
@@ -81,7 +79,7 @@ int main(int argc, const char* argv[])
 
 	errno = 0;
 	//hier habe ich die Fehlermeldung (IPC_EXCL) absichtlich hinaus genommen, damit es egal ist ob empfänger oder sender zuerst aufgerufen wird.
-	if((shmid = shmget(key, (buffer * sizeof(int)), 0660|IPC_CREAT)) == -1)
+	if((shmid = shmget(KEY, (buffer * sizeof(int)), 0660|IPC_CREAT)) == -1)
 	{
 		if(errno != EEXIST)
 		{

@@ -56,9 +56,9 @@ int main(int argc, const char* argv[])
 		}
 	}
 	
-	if((semid = semgrab(key)) == -1)
+	if((semid = semgrab(KEY)) == -1)
 	{
-		semid = seminit(key, 0660, 0);
+		semid = seminit(KEY, 0660, 0);
 		if(semid == -1)
 		{
 			printf("Fehler seminit()\n");
@@ -66,9 +66,9 @@ int main(int argc, const char* argv[])
 		}
 	}
 	
-	if((semid2 = semgrab(key2)) == -1)
+	if((semid2 = semgrab(KEY2)) == -1)
 	{
-		semid2 = seminit(key2, 0660, buffer);
+		semid2 = seminit(KEY2, 0660, buffer);
 		if(semid2 == -1)
 		{
 			printf("Fehler seminit2()\n");
@@ -78,7 +78,7 @@ int main(int argc, const char* argv[])
 	}
 
 	errno = 0;
-	if((shmid = shmget(key, (buffer * sizeof(int)), 0660|IPC_CREAT)) == -1)
+	if((shmid = shmget(KEY, (buffer * sizeof(int)), 0660|IPC_CREAT)) == -1)
 	{
 		if(errno != EEXIST)
 		{
